@@ -1,0 +1,47 @@
+# 3ds Max Wavefront OBJ Exporter v0.99 - (c)2007 guruware
+# File Created: 27.09.2026 18:47:57
+
+newmtl Aparador_tripo_material_06a3138e_ff4f_4e46_a461_65c4a1dd86b5
+	Kd 1.0000 1.0000 1.0000
+	Ks 0.9000 0.9000 0.9000
+	Tr 0.0000
+	d 1.0000
+	Tf 0.0000 0.0000 0.0000
+	Pr 0.0000
+	Pm 0.0000
+	Pc 0.0000
+	Pcr 0.0000
+	Ni 1.5000
+	Ke 0.0000 0.0000 0.0000
+	illum 2
+	map_Kd ..\documents\github\laboratorio_de_computaciongrafica_2027_1\cpda_confini\models\Aparador_basecolor.jpg
+
+newmtl assorted_chocolates_3d_model_tripo_material_09618459_1bb7_4dae_94fd_8b03193c8c07
+	Kd 1.0000 1.0000 1.0000
+	Ks 0.9000 0.9000 0.9000
+	Tr 0.0000
+	d 1.0000
+	Tf 0.0000 0.0000 0.0000
+	Pr 0.0000
+	Pm 0.0000
+	Pc 0.0000
+	Pcr 0.0000
+	Ni 1.5000
+	Ke 0.0000 0.0000 0.0000
+	illum 2
+	map_Kd ..\documents\github\laboratorio_de_computaciongrafica_2027_1\cpda_confini\models\assorted+chocolates+3d+model_basecolor.jpg
+
+newmtl beer_bottle_3d_model_tripo_material_15886371_0f9f_4ac7_8e00_1218ebed5fd2
+	Kd 1.0000 1.0000 1.0000
+	Ks 0.9000 0.9000 0.9000
+	Tr 0.0000
+	d 1.0000
+	Tf 0.0000 0.0000 0.0000
+	Pr 0.0000
+	Pm 0.0000
+	Pc 0.0000
+	Pcr 0.0000
+	Ni 1.5000
+	Ke 0.0000 0.0000 0.0000
+	illum 2
+	map_Kd ..\documents\github\laboratorio_de_computaciongrafica_2027_1\cpda_confini\models\beer+bottle+3d+model_basecolor.jpg
