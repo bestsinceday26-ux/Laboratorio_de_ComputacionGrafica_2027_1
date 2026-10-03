@@ -1,6 +1,6 @@
 // Práctica 7
 // Cadena Palafox Diego Aaron
-// Fecha de entrega: 04 de Octubre del 2026
+// Fecha de entrega: 03 de Octubre del 2026
 // Número de cuenta: 419047650
 
 #include <iostream>
@@ -142,10 +142,10 @@ int main()
           0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 1.0f,  0.6375f,0.6983f,
 
           // Izquierda 
-          -0.5f, -0.5f, -0.5f,  1.0f, 1.0f, 1.0f,  0.0f,0.52f,
-          -0.5f, -0.5f,  0.5f,  1.0f, 1.0f, 1.0f,  0.34f,0.52f,
-          -0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 1.0f,  0.34f,0.69f,
-          -0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 1.0f,  0.0f,0.69f,
+          -0.5f, -0.5f, -0.5f,  1.0f, 1.0f, 1.0f,  0.03f,0.50f,
+          -0.5f, -0.5f,  0.5f,  1.0f, 1.0f, 1.0f,  0.30f,0.50f,
+          -0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 1.0f,  0.30f,0.69f,
+          -0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 1.0f,  0.03f,0.69f,
 
           // Abajo 
           -0.5f, -0.5f, -0.5f,  1.0f, 1.0f, 1.0f,  0.3642f,0.3242f,
