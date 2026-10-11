@@ -11,7 +11,6 @@ struct Material
 struct Light
 {
     vec3 position;
-
     vec3 ambient;
     vec3 diffuse;
     vec3 specular;
@@ -24,138 +23,41 @@ in vec2 TexCoords;
 out vec4 color;
 
 uniform vec3 viewPos;
-
 uniform Material material;
-
 uniform Light light;
 uniform Light light2;
-
+uniform int luzActiva;
 uniform sampler2D texture_diffuse;
-
 
 void main()
 {
-    // =====================================================
-    // NORMAL
-    // =====================================================
-
     vec3 norm = normalize(Normal);
+    vec3 viewDir = normalize(viewPos - FragPos);
 
+    // Calcular contribución de la Luz 1 (Sol).
+    vec3 lightDir1 = normalize(light.position - FragPos);
+    float diff1 = max(dot(norm, lightDir1), 0.0);
+    vec3 ambient1 = light.ambient * material.diffuse;
+    vec3 diffuse1 = light.diffuse * diff1 * material.diffuse;
+    vec3 reflectDir1 = reflect(-lightDir1, norm);
+    float spec1 = pow(max(dot(viewDir, reflectDir1), 0.0), material.shininess);
+    vec3 specular1 = light.specular * (spec1 * material.specular);
 
-    // =====================================================
-    // PRIMERA LUZ
-    // =====================================================
+    // Calcular contribución de la Luz 2 (Luna).
+    vec3 lightDir2 = normalize(light2.position - FragPos);
+    float diff2 = max(dot(norm, lightDir2), 0.0);
+    vec3 ambient2 = light2.ambient * material.diffuse;
+    vec3 diffuse2 = light2.diffuse * diff2 * material.diffuse;
+    vec3 reflectDir2 = reflect(-lightDir2, norm);
+    float spec2 = pow(max(dot(viewDir, reflectDir2), 0.0), material.shininess);
+    vec3 specular2 = light2.specular * (spec2 * material.specular);
 
-    vec3 lightDir1 =
-        normalize(light.position - FragPos);
+    // Activar una sola fuente de luz a la vez.
+    vec3 result;
+    if (luzActiva == 1)
+        result = ambient1 + diffuse1 + specular1;
+    else
+        result = ambient2 + diffuse2 + specular2;
 
-
-    // ---------------- Ambient ----------------
-
-    vec3 ambient1 =
-        light.ambient * material.diffuse;
-
-
-    // ---------------- Diffuse ----------------
-
-    float diff1 =
-        max(dot(norm, lightDir1), 0.0);
-
-    vec3 diffuse1 =
-        light.diffuse *
-        diff1 *
-        material.diffuse;
-
-
-    // ---------------- Specular ----------------
-
-    vec3 viewDir =
-        normalize(viewPos - FragPos);
-
-    vec3 reflectDir1 =
-        reflect(-lightDir1, norm);
-
-    float spec1 =
-        pow(
-            max(dot(viewDir, reflectDir1), 0.0),
-            material.shininess
-        );
-
-    vec3 specular1 =
-        light.specular *
-        (spec1 * material.specular);
-
-
-    // =====================================================
-    // SEGUNDA LUZ
-    // =====================================================
-
-    vec3 lightDir2 =
-        normalize(light2.position - FragPos);
-
-
-    // ---------------- Ambient ----------------
-
-    vec3 ambient2 =
-        light2.ambient * material.diffuse;
-
-
-    // ---------------- Diffuse ----------------
-
-    float diff2 =
-        max(dot(norm, lightDir2), 0.0);
-
-    vec3 diffuse2 =
-        light2.diffuse *
-        diff2 *
-        material.diffuse;
-
-
-    // ---------------- Specular ----------------
-
-    vec3 reflectDir2 =
-        reflect(-lightDir2, norm);
-
-    float spec2 =
-        pow(
-            max(dot(viewDir, reflectDir2), 0.0),
-            material.shininess
-        );
-
-    vec3 specular2 =
-        light2.specular *
-        (spec2 * material.specular);
-
-
-    // =====================================================
-    // SUMAR LAS DOS LUCES
-    // =====================================================
-
-    vec3 ambient =
-        ambient1 + ambient2;
-
-    vec3 diffuse =
-        diffuse1 + diffuse2;
-
-    vec3 specular =
-        specular1 + specular2;
-
-
-    // =====================================================
-    // RESULTADO FINAL DE ILUMINACIÓN
-    // =====================================================
-
-    vec3 result =
-        ambient +
-        diffuse +
-        specular;
-
-
-    // =====================================================
-    // APLICAR TEXTURA
-    // =====================================================
-
-    color =
-        vec4(result, 1.0f) *
-        texture(texture_diffuse, TexCoords);
+    color = vec4(result, 1.0) * texture(texture_diffuse, TexCoords);
 }

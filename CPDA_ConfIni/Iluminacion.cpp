@@ -1,357 +1,760 @@
-// Previo 8
+// Practica 8
 // Cadena Palafox Diego Aaron
-// Fecha de entrega: 04 de Octubre del 2026
-// Número de cuenta: 419047650
+// Fecha de entrega: 11 de Octubre del 2026
+// Numero de cuenta: 419047650
 
-// Std. Includes
 #include <string>
+#include <iostream>
+#include <cmath>
+#include <cstdlib>
 
-// GLEW
 #include <GL/glew.h>
-
-// GLFW
 #include <GLFW/glfw3.h>
 
-// GL includes
 #include "Shader.h"
 #include "Camera.h"
 #include "Model.h"
 
-// GLM Mathemtics
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/constants.hpp>
 
-// Other Libs
 #include "SOIL2/SOIL2.h"
 #include "stb_image.h"
-// Properties
-const GLuint WIDTH = 800, HEIGHT = 600;
+
+const GLuint WIDTH = 800;
+const GLuint HEIGHT = 600;
+
 int SCREEN_WIDTH, SCREEN_HEIGHT;
 
-// Function prototypes
-void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode);
+void KeyCallback(GLFWwindow* window, int key, int scancode,
+    int action, int mode);
+
 void MouseCallback(GLFWwindow* window, double xPos, double yPos);
+
 void DoMovement();
 
+Camera camera(glm::vec3(0.0f, 0.0f, 5.0f));
 
-// Camera
-Camera camera(glm::vec3(0.0f, 0.0f, 0.0f));
 bool keys[1024];
-GLfloat lastX = 400, lastY = 300;
+
+GLfloat lastX = 400.0f;
+GLfloat lastY = 300.0f;
+
 bool firstMouse = true;
 
-
-// Light attributes
-// Primera luz
-glm::vec3 lightPos(0.5f, 0.5f, 2.5f);
-
-// Segunda luz
-glm::vec3 lightPos2(2.0f, 1.5f, -1.0f);
-
-float movelightPos = 0.0f;
-float movelightPos2 = 0.0f;
+// Animación
 
 GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
 
+// Angulo de la orbita, en radianes.
 float rot = 0.0f;
+
+// R inicia y detiene la animacion.
 bool activanim = false;
 
+// 1 = Sol, 2 = Luna.
+int luzActiva = 1;
+
+// ============================================================
+// CONFIGURACION DE LA ORBITA
+// ============================================================
+
+// Radio de la trayectoria.
+const float radioOrbita = 5.0f;
+
+// Centro de la trayectoria.
+const float centroX = 0.0f;
+const float centroY = 1.0f;
+
+// Profundidad de los modelos.
+const float alturaZ = 0.0f;
+
+// Velocidad angular: 15 grados por segundo.
+const float velocidadAngular = glm::radians(15.0f);
+
+// El cambio de iluminacion ocurre al alcanzar 90 grados.
+const float anguloCambio = glm::half_pi<float>();
+
+// Permite detectar el cruce del punto de transicion.
+bool yaCruzoPuntoCambio = false;
+
+// FUNCION PRINCIPAL
 
 int main()
 {
-    // Init GLFW
-    glfwInit();
-    // Set all the required options for GLFW
+
+    // INICIALIZAR GLFW
+    if (!glfwInit())
+    {
+        std::cout << "Error al inicializar GLFW" << std::endl;
+        return EXIT_FAILURE;
+    }
+
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    glfwWindowHint(
+        GLFW_OPENGL_PROFILE,
+        GLFW_OPENGL_CORE_PROFILE
+    );
+
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
-    // Create a GLFWwindow object that we can use for GLFW's functions
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Previo8 DIEGO CADENA", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(
+        WIDTH,
+        HEIGHT,
+        "Practica8 DIEGO CADENA",
+        nullptr,
+        nullptr
+    );
 
-    if (nullptr == window)
+    if (window == nullptr)
     {
-        std::cout << "Failed to create GLFW window" << std::endl;
+        std::cout << "Error al crear la ventana" << std::endl;
         glfwTerminate();
-
         return EXIT_FAILURE;
     }
 
     glfwMakeContextCurrent(window);
 
-    glfwGetFramebufferSize(window, &SCREEN_WIDTH, &SCREEN_HEIGHT);
+    glfwGetFramebufferSize(
+        window,
+        &SCREEN_WIDTH,
+        &SCREEN_HEIGHT
+    );
 
-    // Set the required callback functions
+    // --------------------------------------------------------
+    // REGISTRAR EVENTOS
+    // --------------------------------------------------------
+
     glfwSetKeyCallback(window, KeyCallback);
     glfwSetCursorPosCallback(window, MouseCallback);
 
-    // GLFW Options
-    //glfwSetInputMode( window, GLFW_CURSOR, GLFW_CURSOR_DISABLED );
+    // --------------------------------------------------------
+    // INICIALIZAR GLEW
+    // --------------------------------------------------------
 
-    // Set this to true so GLEW knows to use a modern approach to retrieving function pointers and extensions
     glewExperimental = GL_TRUE;
-    // Initialize GLEW to setup the OpenGL Function pointers
-    if (GLEW_OK != glewInit())
+
+    if (glewInit() != GLEW_OK)
     {
-        std::cout << "Failed to initialize GLEW" << std::endl;
+        std::cout << "Error al inicializar GLEW" << std::endl;
+
+        glfwTerminate();
         return EXIT_FAILURE;
     }
 
-    // Define the viewport dimensions
-    glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+    // --------------------------------------------------------
+    // CONFIGURAR OPENGL
+    // --------------------------------------------------------
 
-    // OpenGL options
+    glViewport(
+        0,
+        0,
+        SCREEN_WIDTH,
+        SCREEN_HEIGHT
+    );
+
     glEnable(GL_DEPTH_TEST);
 
-    // Setup and compile our shaders
-    Shader shader("Shader/modelLoading.vs", "Shader/modelLoading.frag");
-    Shader lampshader("Shader/lamp.vs", "Shader/lamp.frag");
-    Shader lightingShader("Shader/lighting.vs", "Shader/lighting.frag");
+    // --------------------------------------------------------
+    // CARGAR SHADERS
+    // --------------------------------------------------------
 
+    Shader shader(
+        "Shader/modelLoading.vs",
+        "Shader/modelLoading.frag"
+    );
 
+    Shader lightingShader(
+        "Shader/lighting.vs",
+        "Shader/lighting.frag"
+    );
 
-    // Load models
-    Model Guitara((char*)"Models/guitar.obj");
-    glm::mat4 projection = glm::perspective(camera.GetZoom(), (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 0.1f, 100.0f);
+    // --------------------------------------------------------
+    // CARGAR MODELOS
+    // --------------------------------------------------------
 
-    float vertices[] = {
-      -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-         0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-         0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-         0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+    Model dog((char*)"Models/RedDog.obj");
 
-        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-         0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+    Model apa((char*)"Models/Aparador.obj");
 
-        -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+    Model sol((char*)"Models/Sun.obj");
 
-         0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+    Model luna((char*)"Models/moon.obj");
 
-        -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
-         0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
-         0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
-         0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+    // --------------------------------------------------------
+    // MATRIZ DE PROYECCION
+    // --------------------------------------------------------
 
-        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
-         0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f
-    };
+    glm::mat4 projection = glm::perspective(
+        camera.GetZoom(),
+        (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT,
+        0.1f,
+        100.0f
+    );
 
-    // First, set the container's VAO (and VBO)
+    // --------------------------------------------------------
+    // VAO Y VBO
+    // --------------------------------------------------------
+
     GLuint VBO, VAO;
+
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
+
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    // Position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid*)0);
+
+    glVertexAttribPointer(
+        0,
+        3,
+        GL_FLOAT,
+        GL_FALSE,
+        6 * sizeof(GLfloat),
+        (GLvoid*)0
+    );
+
     glEnableVertexAttribArray(0);
-    // normal attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+
+    glVertexAttribPointer(
+        1,
+        3,
+        GL_FLOAT,
+        GL_FALSE,
+        6 * sizeof(GLfloat),
+        (GLvoid*)(3 * sizeof(GLfloat))
+    );
+
     glEnableVertexAttribArray(1);
 
-    // Load textures
+    glBindVertexArray(0);
 
-    GLuint texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    int textureWidth, textureHeight, nrChannels;
-    stbi_set_flip_vertically_on_load(true);
-    unsigned char* image;
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    // ========================================================
+    // BUCLE PRINCIPAL
+    // ========================================================
 
-    image = stbi_load("Models/acoustic+guitar+3d+model_basecolor.jpg", &textureWidth, &textureHeight, &nrChannels, 0);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, textureWidth, textureHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-    glGenerateMipmap(GL_TEXTURE_2D);
-    if (image)
-    {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, textureWidth, textureHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-        glGenerateMipmap(GL_TEXTURE_2D);
-    }
-    else
-    {
-        std::cout << "Failed to load texture" << std::endl;
-    }
-    stbi_image_free(image);
-
-
-    // Game loop
     while (!glfwWindowShouldClose(window))
     {
-        // Set frame time
-        GLfloat currentFrame = glfwGetTime();
+        // ----------------------------------------------------
+        // ACTUALIZAR TIEMPO
+        // ----------------------------------------------------
+
+        GLfloat currentFrame = (GLfloat)glfwGetTime();
+
         deltaTime = currentFrame - lastFrame;
+
         lastFrame = currentFrame;
 
-        // Check and call events
+        // Procesar eventos y movimiento.
         glfwPollEvents();
+
         DoMovement();
 
-        // Clear the colorbuffer
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // ----------------------------------------------------
+        // LIMPIAR PANTALLA
+        // ----------------------------------------------------
 
-        //posicion de la luz 
-        //Primera  
+        glClearColor(
+            0.0f,
+            0.0f,
+            0.0f,
+            1.0f
+        );
+
+        glClear(
+            GL_COLOR_BUFFER_BIT |
+            GL_DEPTH_BUFFER_BIT
+        );
+
+        // ====================================================
+        // CALCULAR POSICIONES DEL SOL Y LA LUNA
+        // ====================================================
+
+        // El Sol recorre la orbita.
+        glm::vec3 posicionSol(
+            centroX + radioOrbita * std::cos(rot),
+            centroY + radioOrbita * std::sin(rot),
+            alturaZ
+        );
+
+        // La Luna se encuentra al lado opuesto del Sol.
+        glm::vec3 posicionLuna(
+            centroX + radioOrbita * std::cos(
+                rot + glm::pi<float>()
+            ),
+            centroY + radioOrbita * std::sin(
+                rot + glm::pi<float>()
+            ),
+            alturaZ
+        );
+
+        // ====================================================
+        // CONFIGURAR SHADER DE ILUMINACION
+        // ====================================================
+
         lightingShader.Use();
-        GLint lightPosLoc = glGetUniformLocation(lightingShader.Program, "light.position");
-        glUniform3f(lightPosLoc, lightPos.x + movelightPos, lightPos.y + movelightPos, lightPos.z + movelightPos);
 
+        // ----------------------------------------------------
+        // POSICIONES DE LAS FUENTES DE LUZ
+        // ----------------------------------------------------
 
-        //Segunda   
-        lightingShader.Use();
-        GLint lightPos2Loc = glGetUniformLocation(lightingShader.Program, "light2.position");
-        glUniform3f(lightPos2Loc, lightPos2.x + movelightPos2, lightPos2.y + movelightPos2, lightPos2.z + movelightPos2);
-       
-        
-        
-        //Posición de la camara 
-        GLint viewPosLoc = glGetUniformLocation(lightingShader.Program, "viewPos");
-        glUniform3f(viewPosLoc, camera.GetPosition().x, camera.GetPosition().y, camera.GetPosition().z);
+        // Luz 1: asociada al Sol.
+        glUniform3f(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "light.position"
+            ),
+            posicionSol.x,
+            posicionSol.y,
+            posicionSol.z
+        );
 
+        // Luz 2: asociada a la Luna.
+        glUniform3f(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "light2.position"
+            ),
+            posicionLuna.x,
+            posicionLuna.y,
+            posicionLuna.z
+        );
 
-        // Set lights properties
-        //Primera Luz 
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "light.ambient"), 0.1f, 0.1f, 0.1f);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "light.diffuse"), 1.0f, 1.0f, 1.0f);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "light.specular"), 1.0f, 1.0f, 1.0f);
+        // Seleccionar la fuente activa.
+        glUniform1i(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "luzActiva"
+            ),
+            luzActiva
+        );
 
+        // ----------------------------------------------------
+        // POSICION DE LA CAMARA
+        // ----------------------------------------------------
 
-        //Segunda Luz 
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "light2.ambient"), 0.5f, 0.5f, 0.5f);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "light2.diffuse"), 1.0f, 1.0f, 1.0f);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "light2.specular"), 1.0f, 1.0f, 1.0f);
+        glUniform3f(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "viewPos"
+            ),
+            camera.GetPosition().x,
+            camera.GetPosition().y,
+            camera.GetPosition().z
+        );
 
+        // ----------------------------------------------------
+        // PROPIEDADES DE LA LUZ 1: SOL
+        // ----------------------------------------------------
 
+        glUniform3f(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "light.ambient"
+            ),
+            0.55f,
+            0.50f,
+            0.30f
+        );
+
+        glUniform3f(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "light.diffuse"
+            ),
+            1.0f,
+            0.80f,
+            0.30f
+        );
+
+        glUniform3f(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "light.specular"
+            ),
+            0.55f,
+            0.95f,
+            0.65f
+        );
+
+        // ----------------------------------------------------
+        // PROPIEDADES DE LA LUZ 2: LUNA
+        // ----------------------------------------------------
+
+        glUniform3f(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "light2.ambient"
+            ),
+            0.55f,
+            0.65f,
+            1.0f
+        );
+
+        glUniform3f(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "light2.diffuse"
+            ),
+            0.55f,
+            0.65f,
+            1.0f
+        );
+
+        glUniform3f(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "light2.specular"
+            ),
+            0.55f,
+            0.65f,
+            1.0f
+        );
+
+        // ----------------------------------------------------
+        // MATRICES DE CAMARA
+        // ----------------------------------------------------
 
         glm::mat4 view = camera.GetViewMatrix();
-        glUniformMatrix4fv(glGetUniformLocation(lightingShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-        glUniformMatrix4fv(glGetUniformLocation(lightingShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
 
-        // Set material properties
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "material.ambient"), 0.2f, 0.2f, 0.2f);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "material.diffuse"), 0.5f, 0.5f, 0.5f);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "material.specular"), 1.0f, 1.0f, 1.0f);
-        glUniform1f(glGetUniformLocation(lightingShader.Program, "material.shininess"), 128.0f);
+        glUniformMatrix4fv(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "projection"
+            ),
+            1,
+            GL_FALSE,
+            glm::value_ptr(projection)
+        );
 
+        glUniformMatrix4fv(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "view"
+            ),
+            1,
+            GL_FALSE,
+            glm::value_ptr(view)
+        );
 
-        // Draw the loaded model
-        glm::mat4 model(1);
-        model = glm::scale(model, glm::vec3(3.0f, 3.0f, 3.0f));
-        glUniformMatrix4fv(glGetUniformLocation(lightingShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
-        glBindVertexArray(VAO);
+        // PERRO
+        // Material del perro.
+        glUniform3f(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "material.ambient"
+            ),
+            0.2f,
+            0.2f,
+            0.2f
+        );
 
-        Guitara.Draw(lightingShader);
+        glUniform3f(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "material.diffuse"
+            ),
+            0.5f,
+            0.5f,
+            0.5f
+        );
 
-        //glDrawArrays(GL_TRIANGLES, 0, 36);
+        glUniform3f(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "material.specular"
+            ),
+            1.0f,
+            1.0f,
+            1.0f
+        );
 
+        glUniform1f(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "material.shininess"
+            ),
+            128.0f
+        );
+
+        glm::mat4 modelDog(1.0f);
+
+        modelDog = glm::scale(
+            modelDog,
+            glm::vec3(3.0f)
+        );
+
+        glUniformMatrix4fv(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "model"
+            ),
+            1,
+            GL_FALSE,
+            glm::value_ptr(modelDog)
+        );
+
+        dog.Draw(lightingShader);
+
+        // MOSTRADOR 
+        glUniform1i(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "luzActiva"
+            ),
+            luzActiva
+        );
+
+        // Material del mostrador.
+        glUniform3f(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "material.ambient"
+            ),
+            0.3f,
+            0.3f,
+            0.3f
+        );
+
+        glUniform3f(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "material.diffuse"
+            ),
+            1.0f,
+            1.0f,
+            1.0f
+        );
+
+        glUniform3f(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "material.specular"
+            ),
+            0.25f,
+            0.25f,
+            0.25f
+        );
+
+        glUniform1f(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "material.shininess"
+            ),
+            32.0f
+        );
+
+        glm::mat4 modelApa(1.0f);
+
+        modelApa = glm::scale(
+            modelApa,
+            glm::vec3(3.0f)
+        );
+
+        modelApa = glm::translate(
+            modelApa,
+            glm::vec3(0.0f, 0.06f, 0.0f)
+        );
+
+        glUniformMatrix4fv(
+            glGetUniformLocation(
+                lightingShader.Program,
+                "model"
+            ),
+            1,
+            GL_FALSE,
+            glm::value_ptr(modelApa)
+        );
+
+        apa.Draw(lightingShader);
+
+        // SOL
+     
+        shader.Use();
+
+        glUniformMatrix4fv(
+            glGetUniformLocation(
+                shader.Program,
+                "projection"
+            ),
+            1,
+            GL_FALSE,
+            glm::value_ptr(projection)
+        );
+
+        glUniformMatrix4fv(
+            glGetUniformLocation(
+                shader.Program,
+                "view"
+            ),
+            1,
+            GL_FALSE,
+            glm::value_ptr(view)
+        );
+
+        glm::mat4 modelSol(1.0f);
+
+        modelSol = glm::translate(
+            modelSol,
+            posicionSol
+        );
+
+        modelSol = glm::rotate(
+            modelSol,
+            rot,
+            glm::vec3(0.0f, 0.0f, 1.0f)
+        );
+
+        modelSol = glm::scale(
+            modelSol,
+            glm::vec3(2.0f)
+        );
+
+        glUniformMatrix4fv(
+            glGetUniformLocation(
+                shader.Program,
+                "model"
+            ),
+            1,
+            GL_FALSE,
+            glm::value_ptr(modelSol)
+        );
+
+        sol.Draw(shader);
+
+        // LUNA
+  
+        glm::mat4 modelLuna(1.0f);
+
+        modelLuna = glm::translate(
+            modelLuna,
+            posicionLuna
+        );
+
+        modelLuna = glm::rotate(
+            modelLuna,
+            rot,
+            glm::vec3(0.0f, 0.0f, 1.0f)
+        );
+
+        modelLuna = glm::scale(
+            modelLuna,
+            glm::vec3(2.0f)
+        );
+
+        glUniformMatrix4fv(
+            glGetUniformLocation(
+                shader.Program,
+                "model"
+            ),
+            1,
+            GL_FALSE,
+            glm::value_ptr(modelLuna)
+        );
+
+        luna.Draw(shader);
+
+        // ----------------------------------------------------
+        // FINALIZAR EL FOTOGRAMA
+        // ----------------------------------------------------
 
         glBindVertexArray(0);
 
-
-
-
-        lampshader.Use();
-        glUniformMatrix4fv(glGetUniformLocation(lampshader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-        glUniformMatrix4fv(glGetUniformLocation(lampshader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
-        glBindVertexArray(VAO);
-        
-        //Dibujo de las Fuentes de Luz 
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, lightPos + movelightPos);
-        model = glm::scale(model, glm::vec3(0.3f));
-        glUniformMatrix4fv(glGetUniformLocation(lampshader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-
-        //segunda luz 
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, lightPos2 + movelightPos2);
-        model = glm::scale(model, glm::vec3(0.3f));
-        glUniformMatrix4fv(glGetUniformLocation(lampshader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-
-
-
-
-        glBindVertexArray(0);
-
-        // Swap the buffers
         glfwSwapBuffers(window);
     }
+
+    // ========================================================
+    // LIBERAR RECURSOS
+    // ========================================================
 
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
 
     glfwTerminate();
-    return 0;
+
+    return EXIT_SUCCESS;
 }
 
-
-// Moves/alters the camera positions based on user input
 void DoMovement()
 {
-    // Camera controls
+    // --------------------------------------------------------
+    // MOVIMIENTO DE LA CAMARA
+    // --------------------------------------------------------
+
     if (keys[GLFW_KEY_W] || keys[GLFW_KEY_UP])
-    {
         camera.ProcessKeyboard(FORWARD, deltaTime);
-    }
 
     if (keys[GLFW_KEY_S] || keys[GLFW_KEY_DOWN])
-    {
         camera.ProcessKeyboard(BACKWARD, deltaTime);
-    }
 
     if (keys[GLFW_KEY_A] || keys[GLFW_KEY_LEFT])
-    {
         camera.ProcessKeyboard(LEFT, deltaTime);
-    }
 
     if (keys[GLFW_KEY_D] || keys[GLFW_KEY_RIGHT])
-    {
         camera.ProcessKeyboard(RIGHT, deltaTime);
-    }
+
+    // --------------------------------------------------------
+    // ANIMACION Y CAMBIO DE ILUMINACION
+    // --------------------------------------------------------
 
     if (activanim)
     {
-        if (rot > -90.0f)
-            rot -= 0.1f;
-    }
+        float anguloAnterior = rot;
 
+        // Movimiento antihorario.
+        rot += velocidadAngular * deltaTime;
+
+        // Mantener el angulo dentro de [0, 2 PI).
+        if (rot >= glm::two_pi<float>())
+        {
+            rot = std::fmod(
+                rot,
+                glm::two_pi<float>()
+            );
+        }
+
+        float anguloSol = rot;
+
+        float anguloLuna = rot + glm::pi<float>();
+
+        if (anguloLuna >= glm::two_pi<float>())
+        {
+            anguloLuna -= glm::two_pi<float>();
+        }
+
+        // Cuando el Sol cruza el punto de transicion,
+        // activar la fuente asociada a la Luna.
+        if (rot < glm::pi<float>())
+        {
+            luzActiva = 1;
+        }
+
+        // Al iniciar una nueva vuelta, volver a la luz del Sol.
+        else
+        {
+            luzActiva = 2;
+        }
+    }
 }
 
-// Is called whenever a key is pressed/released via GLFW
-void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode)
+// ============================================================
+// CALLBACK DEL TECLADO
+// ============================================================
+
+void KeyCallback(
+    GLFWwindow* window,
+    int key,
+    int scancode,
+    int action,
+    int mode
+)
 {
-    if (GLFW_KEY_ESCAPE == key && GLFW_PRESS == action)
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
     {
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
@@ -368,44 +771,39 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
         }
     }
 
-    if (keys[GLFW_KEY_O])
+    // R inicia o detiene la animacion.
+    if (key == GLFW_KEY_R && action == GLFW_PRESS)
     {
-
-        movelightPos += 0.1f;
+        activanim = !activanim;
     }
-
-    if (keys[GLFW_KEY_K])
-    {
-
-        movelightPos -= 0.1f;
-    }
-    if (keys[GLFW_KEY_P])
-    {
-        movelightPos2 += 0.1f;
-    }
-
-    if (keys[GLFW_KEY_L])
-    {
-        movelightPos2 -= 0.1f;
-    }
-
-
 }
 
-void MouseCallback(GLFWwindow* window, double xPos, double yPos)
+// ============================================================
+// CALLBACK DEL MOUSE
+// ============================================================
+
+void MouseCallback(
+    GLFWwindow* window,
+    double xPos,
+    double yPos
+)
 {
     if (firstMouse)
     {
-        lastX = xPos;
-        lastY = yPos;
+        lastX = (GLfloat)xPos;
+        lastY = (GLfloat)yPos;
+
         firstMouse = false;
     }
 
-    GLfloat xOffset = xPos - lastX;
-    GLfloat yOffset = lastY - yPos;  // Reversed since y-coordinates go from bottom to left
+    GLfloat xOffset = (GLfloat)xPos - lastX;
+    GLfloat yOffset = lastY - (GLfloat)yPos;
 
-    lastX = xPos;
-    lastY = yPos;
+    lastX = (GLfloat)xPos;
+    lastY = (GLfloat)yPos;
 
-    camera.ProcessMouseMovement(xOffset, yOffset);
+    camera.ProcessMouseMovement(
+        xOffset,
+        yOffset
+    );
 }
