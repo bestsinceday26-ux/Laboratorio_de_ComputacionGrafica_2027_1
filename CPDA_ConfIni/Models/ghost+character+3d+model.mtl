@@ -1,0 +1,11 @@
+newmtl tripo_material_27a07e3c_6e0f_4956_a173_4fdbe67dc8e2
+Kd 1.000000000 1.000000000 1.000000000
+d 1.000000000
+illum 2
+map_Kd ghost+character+3d+model_basecolor.jpg
+Pr 1.000000000
+Pm 1.000000000
+map_Pr ghost+character+3d+model_roughness.png
+map_Pm ghost+character+3d+model_metallic.png
+norm ghost+character+3d+model_normal.png
+
