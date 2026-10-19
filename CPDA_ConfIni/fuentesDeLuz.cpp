@@ -52,7 +52,7 @@ bool active = false;
 // Positions of the point lights0.025f, 0.003f, 0.045f);
 
 glm::vec3 pointLightPositions[] = {
-	glm::vec3(-0.7f, 0.0f, 0.0f),   // Ghost: fuente puntual blanca-azulada
+	glm::vec3(-0.7f, 0.0f, 0.0f),   // Fantasma 
 	glm::vec3(0.0f, 0.0f, 0.0f),   // Lector de códigos
 	glm::vec3(3.f, 3.0f,2.25f),   // LampLava
 	glm::vec3(0.0f, 0.0f, 0.0f)   // Reserva
