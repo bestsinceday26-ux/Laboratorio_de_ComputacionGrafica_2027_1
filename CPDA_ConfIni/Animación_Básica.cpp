@@ -1,6 +1,6 @@
-// Previo 10
+// Practica 10
 // Cadena Palafox Diego Aaron
-// Fecha de entrega: 19 de Octubre del 2026
+// Fecha de entrega: 25 de Octubre del 2026
 // Número de cuenta: 419047650
 
 #include <iostream>
@@ -18,6 +18,7 @@
 // GLM Mathematics
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/constants.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 //Load Models
@@ -102,19 +103,27 @@ float vertices[] = {
 };
 
 
-
 glm::vec3 Light1 = glm::vec3(0);
-// Animacion de la pelota
-float rotBall = 0.0f;
-bool AnimBall = false;
 
-// Posicion vertical de la pelota.
-float ballY = -0.3f;
-const float BALL_NOSE_Y = -0.3f;
-const float BALL_X = 0.0f;
-const float BALL_Z = 0.0f;
-const float BALL_SPEED = 1.0f; 
-bool ballGoingUp = true;
+// Variables para utilizar en animacion 
+bool AnimBall = false;
+float rotBall = 0.0f;
+float dogAngle = 0.0f;
+float ballAngle = 3.14159265f; 
+
+// 
+const float ORBIT_RADIUS = 2.0f;
+const float DOG_ANGULAR_SPEED = 0.35f;  
+const float BALL_ANGULAR_SPEED = 1.4f; 
+const float BALL_ORBIT_Y = 0.15f;
+const float COLLISION_DISTANCE = 0.55f;
+
+// valores para el golpe con la nariz.
+float ballKickTimer = 0.0f;
+const float BALL_KICK_DURATION = 0.65f;
+const float BALL_KICK_HEIGHT = 0.9f;
+float dogNodTimer = 0.0f;
+const float DOG_NOD_DURATION = 0.35f;
 
 
 // Deltatime
@@ -133,7 +142,7 @@ int main()
 	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);*/
 
 	// Create a GLFWwindow object that we can use for GLFW's functions
-	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Previo10 DIEGO CADENA", nullptr, nullptr);
+	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Practica10 DIEGO CADENA", nullptr, nullptr);
 
 	if (nullptr == window)
 	{
@@ -220,11 +229,6 @@ int main()
 		// OpenGL options
 		glEnable(GL_DEPTH_TEST);
 
-
-
-
-
-
 		// Use cooresponding shader when setting uniforms/drawing objects
 		lightingShader.Use();
 
@@ -290,29 +294,43 @@ int main()
 
 		glm::mat4 model(1);
 
-
-
 		//Carga de modelo 
 		view = camera.GetViewMatrix();
 		model = glm::mat4(1);
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		Piso.Draw(lightingShader);
 
-		model = glm::mat4(1);
+		glm::vec3 dogPosition(ORBIT_RADIUS * cos(dogAngle), 0.0f,
+			ORBIT_RADIUS * sin(dogAngle));
+		model = glm::mat4(1.0f);
+		model = glm::translate(model, dogPosition);
+		float giroPerro = glm::radians(-90.0f);
+		model = glm::rotate(model, dogAngle + glm::half_pi<float>() + giroPerro ,
+		glm::vec3(0.0f, -1.0f, 0.0f));
+		// Pequeno cabeceo cuando la nariz golpea la pelota.
+		if (dogNodTimer > 0.0f) {
+			float nodProgress = 1.0f - dogNodTimer / DOG_NOD_DURATION;
+			float nodAngle = glm::radians(10.0f) * sin(nodProgress * glm::pi<float>());
+			model = glm::rotate(model, nodAngle, glm::vec3(-3.0f, 0.0f, 0.0f));
+		}
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		glUniform1i(glGetUniformLocation(lightingShader.Program, "transparency"), 0);
 		Dog.Draw(lightingShader);
 
-		model = glm::mat4(1);
 		glEnable(GL_BLEND);//Activa la funcionalidad para trabajar el canal alfa
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glUniform1i(glGetUniformLocation(lightingShader.Program, "transparency"), 1);
 
-		
-		model = glm::translate(model, glm::vec3(BALL_X, ballY, BALL_Z));
-		
-	
-
+		float ballY = BALL_ORBIT_Y;
+		if (ballKickTimer > 0.0f) {
+			float progress = 1.0f - ballKickTimer / BALL_KICK_DURATION;
+			ballY += BALL_KICK_HEIGHT * sin(progress * glm::pi<float>());
+		}
+		glm::vec3 ballPosition(ORBIT_RADIUS * cos(ballAngle), ballY,
+			ORBIT_RADIUS * sin(ballAngle));
+		model = glm::mat4(1.0f);
+		model = glm::translate(model, ballPosition);
+		//model = glm::rotate(model, glm::radians(rotBall), glm::vec3(0.0f, 1.0f, 0.0f));
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		Ball.Draw(lightingShader);
 		glDisable(GL_BLEND);  //Desactiva el canal alfa
@@ -465,30 +483,24 @@ void Animation()
 	if (!AnimBall)
 		return;
 
-	// Mantiene el giro de la pelota, ahora independiente de la velocidad de FPS.
-	rotBall += 90.0f * deltaTime;
+	
+	dogAngle += DOG_ANGULAR_SPEED * deltaTime;
+	ballAngle -= BALL_ANGULAR_SPEED * deltaTime;
+	rotBall += 180.0f * deltaTime;
 
-	// La pelota sube hasta la altura actual de la fuente de luz y luego baja.
-	const float ballTopY = pointLightPositions[0].y;
+	if (dogAngle > glm::two_pi<float>()) dogAngle -= glm::two_pi<float>();
+	if (ballAngle < 0.0f) ballAngle += glm::two_pi<float>();
 
-	if (ballGoingUp)
-	{
-		ballY += BALL_SPEED * deltaTime;
+	if (ballKickTimer > 0.0f) ballKickTimer = glm::max(0.0f, ballKickTimer - deltaTime);
+	if (dogNodTimer > 0.0f) dogNodTimer = glm::max(0.0f, dogNodTimer - deltaTime);
 
-		if (ballY >= ballTopY)
-		{
-			ballY = ballTopY;
-			ballGoingUp = false;
-		}
-	}
-	else
-	{
-		ballY -= BALL_SPEED * deltaTime;
 
-		if (ballY <= BALL_NOSE_Y)
-		{
-			ballY = BALL_NOSE_Y;
-			ballGoingUp = true;
+	if (ballKickTimer <= 0.0f && dogNodTimer <= 0.0f) {
+		glm::vec2 dogXZ(ORBIT_RADIUS * cos(dogAngle), ORBIT_RADIUS * sin(dogAngle));
+		glm::vec2 ballXZ(ORBIT_RADIUS * cos(ballAngle), ORBIT_RADIUS * sin(ballAngle));
+		if (glm::length(dogXZ - ballXZ) < COLLISION_DISTANCE) {
+			ballKickTimer = BALL_KICK_DURATION;
+			dogNodTimer = DOG_NOD_DURATION;
 		}
 	}
 }
