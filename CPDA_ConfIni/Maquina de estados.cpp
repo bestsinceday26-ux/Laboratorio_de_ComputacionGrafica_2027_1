@@ -1,7 +1,7 @@
-// Previo 11
+﻿// Práctica 11
 // Cadena Palafox Diego Aaron
-// Fecha de entrega: 25 de Octubre del 2026
-// N�mero de cuenta: 419047650
+// Fecha de entrega: 30 de Octubre del 2026
+// Número de cuenta: 419047650
 
 #include <iostream>
 #include <cmath>
@@ -118,6 +118,30 @@ glm::vec3 dogPos(0.0f, 0.0f, 0.0f);
 float dogRot = 0.0f;
 bool step = false;
 
+// Recorrido
+
+glm::vec3 routePoints[5] = {
+	glm::vec3(0.0f, 0.0f,  2.5f),  // punto azul
+	glm::vec3(2.5f, 0.0f,  2.5f),  // punto gris azulado
+	glm::vec3(-2.5f, 0.0f, -2.5f),// punto cafe
+	glm::vec3(2.5f, 0.0f, -2.5f), // punto rosa
+	glm::vec3(0.0f, 0.0f,  0.0f)  // ORIGEN
+};
+
+int routeSegment = 0;
+int turnState = 0; // 0 caminar, 1 girar cabeza, 2 girar cuerpo
+float targetHeading = 0.0f;
+float walkPhase = 0.0f;
+
+// ANIMACION
+float bodyLean = 0.0f;
+float turnDirection = 1.0f;
+float turnPhase = 0.0f;
+float turnLegFL = 0.0f;
+float turnLegFR = 0.0f;
+float turnLegBL = 0.0f;
+float turnLegBR = 0.0f;
+
 
 
 // Deltatime
@@ -136,7 +160,7 @@ int main()
 	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);*/
 
 	// Create a GLFWwindow object that we can use for GLFW's functions
-	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Previo11 DIEGO CADENA", nullptr, nullptr);
+	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Practica11 DIEGO CADENA", nullptr, nullptr);
 
 	if (nullptr == window)
 	{
@@ -313,12 +337,13 @@ int main()
 		//Body
 		modelTemp = model = glm::translate(model, dogPos);
 		modelTemp = model = glm::rotate(model, glm::radians(dogRot), glm::vec3(0.0f, 1.0f, 0.0f));
+		model = glm::rotate(modelTemp, glm::radians(bodyLean), glm::vec3(0.0f, 0.0f, 1.0f));
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		DogBody.Draw(lightingShader);
 		//Head
 		model = modelTemp;
 		model = glm::translate(model, glm::vec3(0.0f, 0.093f, 0.208f));
-		model = glm::rotate(model, glm::radians(head), glm::vec3(0.0f, 0.0f, 1.0f));
+		model = glm::rotate(model, glm::radians(head), glm::vec3(0.0f, 1.0f, 0.0f));
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		HeadDog.Draw(lightingShader);
 		//Tail 
@@ -330,25 +355,25 @@ int main()
 		//Front Left Leg
 		model = modelTemp;
 		model = glm::translate(model, glm::vec3(0.112f, -0.044f, 0.074f));
-		model = glm::rotate(model, glm::radians(FLegs), glm::vec3(-1.0f, 0.0f, 0.0f));
+		model = glm::rotate(model, glm::radians(FLegs + turnLegFL), glm::vec3(-1.0f, 0.0f, 0.0f));
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		F_LeftLeg.Draw(lightingShader);
 		//Front Right Leg
 		model = modelTemp;
 		model = glm::translate(model, glm::vec3(-0.111f, -0.055f, 0.074f));
-		model = glm::rotate(model, glm::radians(FLegs), glm::vec3(1.0f, 0.0f, 0.0f));
+		model = glm::rotate(model, glm::radians(FLegs + turnLegFR), glm::vec3(1.0f, 0.0f, 0.0f));
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		F_RightLeg.Draw(lightingShader);
 		//Back Left Leg
 		model = modelTemp;
 		model = glm::translate(model, glm::vec3(0.082f, -0.046, -0.218));
-		model = glm::rotate(model, glm::radians(RLegs), glm::vec3(1.0f, 0.0f, 0.0f));
+		model = glm::rotate(model, glm::radians(RLegs + turnLegBL), glm::vec3(1.0f, 0.0f, 0.0f));
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		B_LeftLeg.Draw(lightingShader);
 		//Back Right Leg
 		model = modelTemp;
 		model = glm::translate(model, glm::vec3(-0.083f, -0.057f, -0.231f));
-		model = glm::rotate(model, glm::radians(RLegs), glm::vec3(-1.0f, 0.0f, 0.0f));
+		model = glm::rotate(model, glm::radians(RLegs + turnLegBR), glm::vec3(-1.0f, 0.0f, 0.0f));
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		B_RightLeg.Draw(lightingShader);
 
@@ -505,68 +530,209 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
 
 	}
 
-	if (keys[GLFW_KEY_B])
+	if (key == GLFW_KEY_B && action == GLFW_PRESS)
 	{
+		// Origen 
+		dogPos = glm::vec3(0.0f, 0.0f, 0.0f);
+		dogRot = 0.0f;
+		head = 0.0f;
+		FLegs = 0.0f;
+		RLegs = 0.0f;
+		tail = 0.0f;
+		routeSegment = 0;
+		turnState = 0;
+		targetHeading = 0.0f;
+		walkPhase = 0.0f;
+		bodyLean = 0.0f;
+		turnDirection = 1.0f;
+		turnPhase = 0.0f;
+		turnLegFL = turnLegFR = turnLegBL = turnLegBR = 0.0f;
 		dogAnim = 1;
-
 	}
 
 }
-void Animation() {
+void Animation()
+{
 	// Rotacion de la pelota
 	if (AnimBall)
-	{
 		rotBall += 0.4f;
-	}
 
-	// Rotacion del perro
-	if (AnimDog)
-	{
-		rotDog -= 0.6f;
-	}
+	if (dogAnim != 1)
+		return;
 
-	// Animacion de caminar
-	if (dogAnim == 1)
-	{
-		// Limite maximo de avance del perro
-		const float limitePiso = 2.5f;
+	const float WALK_SPEED = 0.8f;
+	const float HEAD_SPEED = 100.0f;
+	const float BODY_SPEED = 100.0f;
+	const float LEAN_MAX = 10.0f;
+	const float TURN_LEG_AMPLITUDE = 8.0f;
 
-		// Mientras no llegue al borde, el perro camina
-		if (dogPos.z < limitePiso)
+	float dt = deltaTime;
+	if (dt > 0.05f) dt = 0.05f;
+	if (dt < 0.0f) dt = 0.0f;
+
+	auto normalizeAngle = [](float angle)
 		{
-			// Movimiento de las patas, cabeza y cola
-			if (!step)
+			while (angle > 180.0f) angle -= 360.0f;
+			while (angle < -180.0f) angle += 360.0f;
+			return angle;
+		};
+
+	auto approach = [](float current, float target, float amount)
+		{
+			if (current < target) return (current + amount > target) ? target : current + amount;
+			if (current > target) return (current - amount < target) ? target : current - amount;
+			return target;
+		};
+
+
+	// CAMINAR HACIA EL SIGUIENTE PUNTO
+
+	if (turnState == 0)
+	{
+		glm::vec3 destino = routePoints[routeSegment];
+		glm::vec3 direccion = destino - dogPos;
+		float distancia = glm::length(direccion);
+		float avance = WALK_SPEED * dt;
+
+		bodyLean = approach(bodyLean, 0.0f, 35.0f * dt);
+		turnLegFL = approach(turnLegFL, 0.0f, 100.0f * dt);
+		turnLegFR = approach(turnLegFR, 0.0f, 100.0f * dt);
+		turnLegBL = approach(turnLegBL, 0.0f, 100.0f * dt);
+		turnLegBR = approach(turnLegBR, 0.0f, 100.0f * dt);
+
+		if (distancia <= avance + 0.001f)
+		{
+			dogPos = destino;
+
+
+			if (routeSegment == 4)
 			{
-				RLegs += 0.3f;
-				FLegs += 0.3f;
-				head += 0.3f;
-				tail += 0.3f;
-
-				if (RLegs > 15.0f)
-					step = true;
-			}
-			else
-			{
-				RLegs -= 0.3f;
-				FLegs -= 0.3f;
-				head -= 0.3f;
-				tail -= 0.3f;
-
-				if (RLegs < -15.0f)
-					step = false;
+				dogAnim = 0;
+				FLegs = RLegs = head = tail = 0.0f;
+				bodyLean = 0.0f;
+				turnLegFL = turnLegFR = turnLegBL = turnLegBR = 0.0f;
+				return;
 			}
 
-			// Avanzar solamente mientras haya piso
-			dogPos.z += 0.004f;
+			// 
+			routeSegment++;
+			glm::vec3 siguiente = routePoints[routeSegment] - dogPos;
+			targetHeading = glm::degrees(atan2(siguiente.x, siguiente.z));
+			targetHeading = normalizeAngle(targetHeading);
 
-			// Evitar que sobrepase el limite
-			if (dogPos.z > limitePiso)
-				dogPos.z = limitePiso;
+			float diferencia = normalizeAngle(targetHeading - dogRot);
+			turnDirection = (diferencia >= 0.0f) ? 1.0f : -1.0f;
+			turnPhase = 0.0f;
+
+			// animación de la cabeza.
+			turnState = 1;
+			FLegs = RLegs = 0.0f;
+			turnLegFL = turnLegFR = turnLegBL = turnLegBR = 0.0f;
+			tail = 0.0f;
+		}
+		else if (distancia > 0.0001f)
+		{
+			direccion = glm::normalize(direccion);
+			dogPos += direccion * avance;
+
+			// Caminata normal alternado de las patas.
+			walkPhase += 8.0f * dt;
+			FLegs = 20.0f * sin(walkPhase);
+			RLegs = -20.0f * sin(walkPhase);
+			tail = 6.0f * sin(walkPhase * 2.0f);
+			head = 0.0f;
+		}
+	}
+
+	// ESTADO 1
+
+	else if (turnState == 1)
+	{
+		float diferencia = normalizeAngle(targetHeading - dogRot);
+		float pasoCabeza = HEAD_SPEED * dt;
+
+		if (fabs(diferencia - head) > pasoCabeza)
+		{
+			head += (diferencia > head) ? pasoCabeza : -pasoCabeza;
 		}
 		else
 		{
-			// Detener la animacion al llegar al borde
-			dogAnim = 0;
+			head = diferencia;
+			turnState = 2;
+			turnPhase = 0.0f;
+		}
+
+
+		FLegs = RLegs = 0.0f;
+		bodyLean = approach(bodyLean, turnDirection * LEAN_MAX, 45.0f * dt);
+		tail = approach(tail, -turnDirection * 8.0f, 35.0f * dt);
+
+
+		turnLegFL = approach(turnLegFL, -turnDirection * 8.0f, 70.0f * dt);
+		turnLegFR = approach(turnLegFR, turnDirection * 8.0f, 70.0f * dt);
+		turnLegBL = approach(turnLegBL, -turnDirection * 5.0f, 70.0f * dt);
+		turnLegBR = approach(turnLegBR, turnDirection * 5.0f, 70.0f * dt);
+	}
+
+
+	// ESTADO 2
+
+	else if (turnState == 2)
+	{
+		float diferencia = normalizeAngle(targetHeading - dogRot);
+		float pasoCuerpo = BODY_SPEED * dt;
+
+
+		bodyLean = approach(bodyLean, turnDirection * LEAN_MAX, 30.0f * dt);
+
+
+		turnPhase += 0.85f * dt;
+		float giroPatas = sin(turnPhase) * TURN_LEG_AMPLITUDE;
+		float giroPatasOpuesto = sin(turnPhase - 3.14159265f) * TURN_LEG_AMPLITUDE;
+
+
+		turnLegFL = -turnDirection * 7.0f - giroPatas;
+		turnLegFR = turnDirection * 7.0f - giroPatasOpuesto;
+		turnLegBL = -turnDirection * 5.0f - giroPatasOpuesto;
+		turnLegBR = turnDirection * 5.0f - giroPatas;
+
+
+		if (fabs(diferencia) > pasoCuerpo)
+		{
+			dogRot += (diferencia > 0.0f) ? pasoCuerpo : -pasoCuerpo;
+			dogRot = normalizeAngle(dogRot);
+			head = normalizeAngle(targetHeading - dogRot);
+		}
+		else
+		{
+			dogRot = targetHeading;
+			head = 0.0f;
+			turnState = 3;
+		}
+	}
+
+
+	// ESTADO 3
+
+	else if (turnState == 3)
+	{
+		const float RECOVERY_SPEED = 65.0f;
+		bodyLean = approach(bodyLean, 0.0f, RECOVERY_SPEED * dt);
+		tail = approach(tail, 0.0f, RECOVERY_SPEED * dt);
+		turnLegFL = approach(turnLegFL, 0.0f, RECOVERY_SPEED * dt);
+		turnLegFR = approach(turnLegFR, 0.0f, RECOVERY_SPEED * dt);
+		turnLegBL = approach(turnLegBL, 0.0f, RECOVERY_SPEED * dt);
+		turnLegBR = approach(turnLegBR, 0.0f, RECOVERY_SPEED * dt);
+		FLegs = RLegs = 0.0f;
+
+		if (fabs(bodyLean) < 0.2f &&
+			fabs(turnLegFL) < 0.2f && fabs(turnLegFR) < 0.2f &&
+			fabs(turnLegBL) < 0.2f && fabs(turnLegBR) < 0.2f)
+		{
+			bodyLean = 0.0f;
+			tail = 0.0f;
+			turnLegFL = turnLegFR = turnLegBL = turnLegBR = 0.0f;
+			turnState = 0;
 		}
 	}
 }
