@@ -1,9 +1,10 @@
-// Previo 12
+// Practica 12
 // Cadena Palafox Diego Aaron
-// Fecha de entrega: 31 de Octubre del 2026
+// Fecha de entrega: 08 de Noviembre del 2026
 // Numero de cuenta: 419047650
 
 #include <iostream>
+#include <cstdio>
 #include <cmath>
 
 // GLEW
@@ -104,10 +105,11 @@ float vertices[] = {
 
 
 glm::vec3 Light1 = glm::vec3(0);
-//Anim
-//float rotBall = 0.0f;
+//Animación
+float rotBall = 0.0f;
 float rotDog = 0.0f;
 int dogAnim = 0;
+
 float FLegL = 0.0f;       // pata delantera izquierda
 float FLegR = 0.0f;       // pata delantera derecha
 float BLegL = 0.0f;       // pata trasera izquierda
@@ -115,14 +117,15 @@ float BLegR = 0.0f;       // pata trasera derecha
 float head = 0.0f;
 float tail = 0.0f;
 float bodyPitch = 0.0f;   
+float bodyRoll = 0.0f;    
 
 
 
 //KeyFrames
 float dogPosX = 0.0f, dogPosY = 0.0f, dogPosZ = 0.0f;
 
-#define MAX_FRAMES 9
-int i_max_steps = 190;
+#define MAX_FRAMES 16
+int i_max_steps = 60;      
 int i_curr_steps = 0;
 typedef struct _frame {
 
@@ -136,6 +139,7 @@ typedef struct _frame {
 	float tail, tailInc;
 	float head, headInc;
 	float bodyPitch, bodyPitchInc;
+	float bodyRoll, bodyRollInc;
 
 
 }FRAME;
@@ -162,6 +166,7 @@ void saveFrame(void)
 	KeyFrame[FrameIndex].tail = tail;
 	KeyFrame[FrameIndex].head = head;
 	KeyFrame[FrameIndex].bodyPitch = bodyPitch;
+	KeyFrame[FrameIndex].bodyRoll = bodyRoll;
 
 	FrameIndex++;
 }
@@ -180,8 +185,28 @@ void resetElements(void)
 	tail = KeyFrame[0].tail;
 	head = KeyFrame[0].head;
 	bodyPitch = KeyFrame[0].bodyPitch;
+	bodyRoll = KeyFrame[0].bodyRoll;
 
 }
+
+// Coloca la pose actual exactamente en el fotograma indicado (evita acumular error al interpolar)
+void snapToFrame(int idx)
+{
+	dogPosX = KeyFrame[idx].dogPosX;
+	dogPosY = KeyFrame[idx].dogPosY;
+	dogPosZ = KeyFrame[idx].dogPosZ;
+
+	rotDog = KeyFrame[idx].rotDog;
+	FLegL = KeyFrame[idx].FLegL;
+	FLegR = KeyFrame[idx].FLegR;
+	BLegL = KeyFrame[idx].BLegL;
+	BLegR = KeyFrame[idx].BLegR;
+	tail = KeyFrame[idx].tail;
+	head = KeyFrame[idx].head;
+	bodyPitch = KeyFrame[idx].bodyPitch;
+	bodyRoll = KeyFrame[idx].bodyRoll;
+}
+
 void interpolation(void)
 {
 
@@ -197,6 +222,7 @@ void interpolation(void)
 	KeyFrame[playIndex].tailInc = (KeyFrame[playIndex + 1].tail - KeyFrame[playIndex].tail) / i_max_steps;
 	KeyFrame[playIndex].headInc = (KeyFrame[playIndex + 1].head - KeyFrame[playIndex].head) / i_max_steps;
 	KeyFrame[playIndex].bodyPitchInc = (KeyFrame[playIndex + 1].bodyPitch - KeyFrame[playIndex].bodyPitch) / i_max_steps;
+	KeyFrame[playIndex].bodyRollInc = (KeyFrame[playIndex + 1].bodyRoll - KeyFrame[playIndex].bodyRoll) / i_max_steps;
 
 }
 
@@ -218,7 +244,7 @@ int main()
 	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);*/
 
 	// Create a GLFWwindow object that we can use for GLFW's functions
-	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Previo 12 DIEGO CADENA", nullptr, nullptr);
+	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Practica 12 DIEGO CADENA", nullptr, nullptr);
 
 	if (nullptr == window)
 	{
@@ -266,7 +292,7 @@ int main()
 	Model B_RightLeg((char*)"Models/B_RightLegDog.obj");
 	Model B_LeftLeg((char*)"Models/B_LeftLegDog.obj");
 	Model Piso((char*)"Models/piso.obj");
-	//Model Ball((char*)"Models/ball.obj");
+	Model Ball((char*)"Models/ball.obj");
 
 
 	//KeyFrames
@@ -282,10 +308,10 @@ int main()
 		KeyFrame[i].rotDogInc = 0;
 		KeyFrame[i].FLegL = KeyFrame[i].FLegR = 0;
 		KeyFrame[i].BLegL = KeyFrame[i].BLegR = 0;
-		KeyFrame[i].tail = KeyFrame[i].head = KeyFrame[i].bodyPitch = 0;
+		KeyFrame[i].tail = KeyFrame[i].head = KeyFrame[i].bodyPitch = KeyFrame[i].bodyRoll = 0;
 		KeyFrame[i].FLegLInc = KeyFrame[i].FLegRInc = 0;
 		KeyFrame[i].BLegLInc = KeyFrame[i].BLegRInc = 0;
-		KeyFrame[i].tailInc = KeyFrame[i].headInc = KeyFrame[i].bodyPitchInc = 0;
+		KeyFrame[i].tailInc = KeyFrame[i].headInc = KeyFrame[i].bodyPitchInc = KeyFrame[i].bodyRollInc = 0;
 	}
 
 
@@ -417,10 +443,12 @@ int main()
 		model = glm::mat4(1);
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		glUniform1i(glGetUniformLocation(lightingShader.Program, "transparency"), 0);
+
 		//Body
-		modelTemp = model = glm::translate(model, glm::vec3(dogPosX, dogPosY, dogPosZ));
-		model = glm::rotate(model, glm::radians(rotDog), glm::vec3(0.0f, 1.0f, 0.0f));
+		model = glm::translate(model, glm::vec3(dogPosX, dogPosY, dogPosZ));
+		model = glm::rotate(model, glm::radians(rotDog), glm::vec3(-1.0f, 0.0f, 0.0f));
 		model = glm::rotate(model, glm::radians(bodyPitch), glm::vec3(1.0f, 0.0f, 0.0f));
+		model = glm::rotate(model, glm::radians(bodyRoll), glm::vec3(0.0f, 0.0f, 1.0f));
 		modelTemp = model;
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		DogBody.Draw(lightingShader);
@@ -520,18 +548,15 @@ void DoMovement()
 {
 	//Dog Controls
 
-	if (keys[GLFW_KEY_2])
+	// (Antes eran las teclas 2 y 3, pero chocaban con las patas delanteras)
+	if (keys[GLFW_KEY_9])
 	{
-
 		rotDog += 1.0f;
-
 	}
 
-	if (keys[GLFW_KEY_3])
+	if (keys[GLFW_KEY_0])
 	{
-
 		rotDog -= 1.0f;
-
 	}
 
 	if (keys[GLFW_KEY_H])
@@ -594,6 +619,95 @@ void DoMovement()
 
 }
 
+void recordDeadDogSequence()
+{
+	FrameIndex = 0;
+	play = false;
+
+	// 0: De pie
+	dogPosX = dogPosY = dogPosZ = 0.0f;
+	rotDog = 0.0f;
+	bodyPitch = bodyRoll = 0.0f;
+	FLegL = FLegR = BLegL = BLegR = 0.0f;
+	head = tail = 0.0f;
+	saveFrame();
+
+	// 1
+	dogPosY = -0.004f;
+	bodyRoll = 20.0f;
+	head = 25.0f;
+	tail = 15.0f;
+	FLegL = -65.0f; FLegR = -60.0f;
+	BLegL = 10.0f;  BLegR = -10.0f;
+	saveFrame();
+
+	// 2
+	dogPosY = -0.030f;
+	bodyRoll = 55.0f;
+	head = 18.0f;
+	tail = 25.0f;
+	FLegL = -45.0f; FLegR = 35.0f;
+	BLegL = 25.0f;  BLegR = -25.0f;
+	saveFrame();
+
+	// 3
+	dogPosY = -0.045f;
+	bodyRoll = 90.0f;
+	head = 10.0f;
+	tail = 30.0f;
+	FLegL = -55.0f; FLegR = 65.0f;
+	BLegL = 35.0f;  BLegR = -35.0f;
+	saveFrame();
+
+	// 4
+	dogPosY = -0.055f;
+	bodyRoll = 140.0f;
+	head = -5.0f;
+	tail = 25.0f;
+	FLegL = -45.0f; FLegR = 35.0f;
+	BLegL = 20.0f;  BLegR = -20.0f;
+	saveFrame();
+
+	// 5: Boca arriba (180 grados)
+	dogPosY = -0.060f;
+	bodyRoll = 180.0f;
+	head = 0.0f;
+	tail = 20.0f;
+	FLegL = -25.0f; FLegR = 25.0f;
+	BLegL = 10.0f;  BLegR = -10.0f;
+	saveFrame();
+
+	// 6
+	FLegL = -30.0f; FLegR = 30.0f;
+	BLegL = 15.0f;  BLegR = -15.0f;
+	head = 8.0f;
+	tail = -15.0f;
+	saveFrame();
+
+	// 7
+	FLegL = -30.0f;  FLegR = 45.0f;
+	BLegL = 5.0f;   BLegR = -5.0f;
+	head = -8.0f;
+	tail = 20.0f;
+	saveFrame();
+
+	// 8 
+	FLegL = 50.0f; FLegR = -50.0f;
+	BLegL = 15.0f;  BLegR = -15.0f;
+	head = 23.0f;
+	tail = -10.0f;
+	saveFrame();
+
+	// 9: Se queda quieto, "muerto"
+	FLegL = 0.0f; FLegR = 0.0f;
+	BLegL = 0.0f;  BLegR = 0.0f;
+	head = 0.0f;
+	tail = 10.0f;
+	saveFrame();
+
+	printf("Secuencia Terminada (%d fotogramas).\n", FrameIndex);
+}
+
 // Is called whenever a key is pressed/released via GLFW
 void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode)
 {
@@ -604,6 +718,17 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
 	{
 		if (action == GLFW_PRESS) keys[key] = true;
 		else if (action == GLFW_RELEASE) keys[key] = false;
+	}
+
+	// M genera la secuencia de "hacerse el muerto" y la reproduce de inmediato.
+	if (action == GLFW_PRESS && key == GLFW_KEY_M)
+	{
+		recordDeadDogSequence();
+		resetElements();
+		playIndex = 0;
+		i_curr_steps = 0;
+		interpolation();
+		play = true;
 	}
 
 	// Guardar un fotograma con K. Cada pulsacion guarda la pose actual.
@@ -643,10 +768,10 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
 		const float paso = 5.0f;
 		switch (key)
 		{
-		case GLFW_KEY_0: FLegL += paso; break; // delantera izquierda
-		case GLFW_KEY_1: FLegL -= paso; break;
-		case GLFW_KEY_9: FLegR += paso; break; // delantera derecha
-		case GLFW_KEY_B: FLegR -= paso; break;
+		case GLFW_KEY_1: FLegL += paso; break; // delantera izquierda
+		case GLFW_KEY_2: FLegL -= paso; break;
+		case GLFW_KEY_3: FLegR += paso; break; // delantera derecha
+		case GLFW_KEY_4: FLegR -= paso; break;
 		case GLFW_KEY_5: BLegL += paso; break; // trasera izquierda
 		case GLFW_KEY_6: BLegL -= paso; break;
 		case GLFW_KEY_7: BLegR += paso; break; // trasera derecha
@@ -657,10 +782,12 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
 		case GLFW_KEY_X: bodyPitch -= paso; break;
 		case GLFW_KEY_C: head += paso; break;
 		case GLFW_KEY_V: head -= paso; break;
+		case GLFW_KEY_B: bodyRoll += paso; break; // rodar sobre su eje largo
+		case GLFW_KEY_N: bodyRoll -= paso; break;
 		case GLFW_KEY_R:
 			// Reiniciar articulaciones sin cambiar posicion ni orientacion.
 			FLegL = FLegR = BLegL = BLegR = 0.0f;
-			tail = head = bodyPitch = 0.0f;
+			tail = head = bodyPitch = bodyRoll = 0.0f;
 			break;
 		}
 	}
@@ -679,6 +806,9 @@ void Animation() {
 	{
 		if (i_curr_steps >= i_max_steps) //end of animation between frames?
 		{
+			// Ajusta exactamente al fotograma destino para no acumular error
+			snapToFrame(playIndex + 1);
+
 			playIndex++;
 			if (playIndex > FrameIndex - 2)	//end of total animation?
 			{
@@ -708,6 +838,7 @@ void Animation() {
 			tail += KeyFrame[playIndex].tailInc;
 			head += KeyFrame[playIndex].headInc;
 			bodyPitch += KeyFrame[playIndex].bodyPitchInc;
+			bodyRoll += KeyFrame[playIndex].bodyRollInc;
 
 			i_curr_steps++;
 		}
